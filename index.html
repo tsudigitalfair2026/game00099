@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>超難関わんわんサバイバルパズル ボス版</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+touch-action:none;
+-webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+width:100%;
+height:100%;
+overflow:hidden;
+font-family:sans-serif;
+background:linear-gradient(#fff7e8,#ffe0b2);
+}
+
+.screen{
+display:none;
+width:100%;
+height:100%;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+padding:12px;
+text-align:center;
+}
+
+.active{
+display:flex;
+}
+
+.card{
+background:#fff;
+border-radius:20px;
+padding:18px;
+box-shadow:0 4px 15px rgba(0,0,0,.15);
+width:min(95vw,520px);
+}
+
+h1{
+color:#ff6f00;
+margin-bottom:10px;
+font-size:2rem;
+}
+
+button{
+border:none;
+background:#ff9800;
+color:#fff;
+font-size:1.1rem;
+font-weight:bold;
+padding:16px 28px;
+border-radius:16px;
+min-height:60px;
+margin-top:12px;
+cursor:pointer;
+}
+
+#hud{
+width:min(96vw,520px);
+display:flex;
+justify-content:space-between;
+font-size:1rem;
+font-weight:bold;
+padding:6px;
+}
+
+#hpWrap{
+width:min(96vw,520px);
+height:24px;
+background:#ddd;
+border-radius:30px;
+overflow:hidden;
+margin-bottom:8px;
+}
+
+#hpBar{
+height:100%;
+width:100%;
+background:linear-gradient(90deg,#4caf50,#8bc34a);
+transition:.2s;
+}
+
+#message{
+height:30px;
+margin:6px;
+font-weight:bold;
+color:#d84315;
+}
+
+#gameArea{
+width:min(96vw,520px);
+height:min(68vh,620px);
+display:grid;
+grid-template-columns:repeat(5,1fr);
+gap:5px;
+}
+
+.tile{
+background:#fff;
+border-radius:12px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:1.7rem;
+box-shadow:0 2px 6px rgba(0,0,0,.15);
+user-select:none;
+}
+
+.selected{
+outline:4px solid #4caf50;
+}
+
+.rank{
+font-size:2rem;
+font-weight:bold;
+color:#ff5722;
+margin:10px;
+}
+
+.small{
+line-height:1.7;
+}
+
+#bossOverlay{
+position:absolute;
+inset:0;
+background:rgba(0,0,0,.85);
+display:none;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+z-index:100;
+color:white;
+padding:15px;
+}
+
+#bossFace{
+font-size:5rem;
+margin-bottom:10px;
+animation:pulse .7s infinite;
+}
+
+#bossHpWrap{
+width:min(90vw,400px);
+height:26px;
+background:#555;
+border-radius:30px;
+overflow:hidden;
+margin:10px 0;
+}
+
+#bossHpBar{
+height:100%;
+width:100%;
+background:linear-gradient(90deg,#f44336,#ff1744);
+}
+
+#bossInfo{
+font-size:1rem;
+margin-bottom:12px;
+}
+
+#bossAttack{
+font-size:1.1rem;
+font-weight:bold;
+background:#ff1744;
+padding:16px 24px;
+border-radius:15px;
+}
+
+@keyframes pulse{
+0%{transform:scale(1);}
+50%{transform:scale(1.12);}
+100%{transform:scale(1);}
+}
+</style>
+</head>
+<body>
+
+<div id="startScreen" class="screen active">
+<div class="card">
+<h1>🐶 超難関わんわんサバイバル</h1>
+<p class="small">
+同じ犬を3匹集めよう！<br>
+ミスするとHP減少！<br>
+❤️を3匹でHP回復！<br>
+さらに高得点になると…<br>
+💀巨大ボス犬が出現！<br>
+連打で倒して大量得点を獲得しよう！
+</p>
+<button id="startBtn">ゲームスタート</button>
+</div>
+</div>
+
+<div id="gameScreen" class="screen">
+
+<div id="hud">
+<div>🏆 <span id="score">0</span></div>
+<div>⏰ <span id="time">30</span></div>
+</div>
+
+<div id="hpWrap">
+<div id="hpBar"></div>
+</div>
+
+<div id="message">同じ犬を3匹探そう！</div>
+
+<div id="gameArea"></div>
+
+</div>
+
+<div id="resultScreen" class="screen">
+<div class="card">
+<h1>結果発表</h1>
+<div id="finalScore" style="font-size:3rem;font-weight:bold;">0</div>
+<div id="rank" class="rank">C</div>
+<button id="retryBtn">もう一度遊ぶ</button>
+</div>
+</div>
+
+<div id="bossOverlay">
+<div id="bossFace">🐺</div>
+<h2>巨大ボス犬あらわる！</h2>
+
+<div id="bossHpWrap">
+<div id="bossHpBar"></div>
+</div>
+
+<div id="bossInfo">
+ボスを連打して倒せ！
+</div>
+
+<button id="bossAttack">
+👊 連打で攻撃！
+</button>
+</div>
+
+<script>
+
+const startScreen=document.getElementById("startScreen");
+const gameScreen=document.getElementById("gameScreen");
+const resultScreen=document.getElementById("resultScreen");
+
+const scoreEl=document.getElementById("score");
+const timeEl=document.getElementById("time");
+const hpBar=document.getElementById("hpBar");
+const gameArea=document.getElementById("gameArea");
+const messageEl=document.getElementById("message");
+
+const finalScore=document.getElementById("finalScore");
+const rankEl=document.getElementById("rank");
+
+const bossOverlay=document.getElementById("bossOverlay");
+const bossHpBar=document.getElementById("bossHpBar");
+const bossAttack=document.getElementById("bossAttack");
+
+let score=0;
+let hp=100;
+let time=30;
+let timer=null;
+let selected=[];
+
+let bossActive=false;
+let bossHp=0;
+let bossAppeared=false;
+
+const dogs=[
+"🐶","🐶","🐶",
+"🐕","🐕","🐕",
+"🦮","🦮","🦮",
+"🐕‍🦺","🐕‍🦺","🐕‍🦺",
+"❤️","❤️","❤️",
+"🐺","🐺",
+"🦊","🦊",
+"🐱","🐱",
+"🐰","🐰",
+"🐻"
+];
+
+function show(screen){
+[startScreen,gameScreen,resultScreen].forEach(
+s=>s.classList.remove("active")
+);
+screen.classList.add("active");
+}
+
+function shuffle(arr){
+for(let i=arr.length-1;i>0;i--){
+const j=Math.floor(Math.random()*(i+1));
+[arr[i],arr[j]]=[arr[j],arr[i]];
+}
+return arr;
+}
+
+function updateHP(){
+
+hp=Math.max(0,Math.min(100,hp));
+
+hpBar.style.width=hp+"%";
+
+if(hp>60){
+hpBar.style.background="linear-gradient(90deg,#4caf50,#8bc34a)";
+}else if(hp>30){
+hpBar.style.background="linear-gradient(90deg,#ff9800,#ffc107)";
+}else{
+hpBar.style.background="linear-gradient(90deg,#f44336,#ff1744)";
+}
+
+if(hp<=0){
+endGame();
+}
+}
+
+function createBoard(){
+
+if(bossActive) return;
+
+selected=[];
+
+let board=[...dogs];
+shuffle(board);
+
+gameArea.innerHTML="";
+
+board.forEach(item=>{
+
+const tile=document.createElement("div");
+
+tile.className="tile";
+tile.textContent=item;
+tile.dataset.type=item;
+
+tile.addEventListener("pointerdown",()=>{
+
+if(time<=0||hp<=0||bossActive) return;
+
+if(tile.classList.contains("selected")) return;
+
+tile.classList.add("selected");
+selected.push(tile);
+
+if(selected.length===3){
+
+const same=selected.every(
+t=>t.dataset.type===selected[0].dataset.type
+);
+
+if(same){
+
+const type=selected[0].dataset.type;
+
+if(type==="❤️"){
+hp+=25;
+score+=20;
+messageEl.textContent="❤️ HP回復！";
+}
+else if(
+type==="🐶"||
+type==="🐕"||
+type==="🦮"||
+type==="🐕‍🦺"
+){
+score+=15;
+messageEl.textContent="🎉 正解！";
+}
+else{
+score+=35;
+messageEl.textContent="🌟 レア正解！";
+}
+
+scoreEl.textContent=score;
+updateHP();
+
+if(score>=120 && !bossAppeared){
+startBossBattle();
+return;
+}
+
+setTimeout(createBoard,250);
+
+}else{
+
+hp-=20;
+updateHP();
+
+messageEl.textContent="💥 ミス！ HP-20";
+
+setTimeout(()=>{
+selected.forEach(t=>{
+t.classList.remove("selected");
+});
+selected=[];
+},250);
+}
+}
+});
+
+gameArea.appendChild(tile);
+
+});
+}
+
+function startBossBattle(){
+
+bossAppeared=true;
+bossActive=true;
+bossHp=100;
+
+bossOverlay.style.display="flex";
+bossHpBar.style.width="100%";
+
+messageEl.textContent="💀 巨大ボス犬出現！";
+}
+
+bossAttack.addEventListener("pointerdown",()=>{
+
+if(!bossActive) return;
+
+const damage=5+Math.floor(Math.random()*4);
+
+bossHp-=damage;
+
+if(Math.random()<0.25){
+hp-=4;
+updateHP();
+}
+
+if(bossHp<0) bossHp=0;
+
+bossHpBar.style.width=bossHp+"%";
+
+if(bossHp<=0){
+
+bossActive=false;
+bossOverlay.style.display="none";
+
+score+=100;
+scoreEl.textContent=score;
+
+hp=Math.min(100,hp+30);
+updateHP();
+
+messageEl.textContent=
+"🏆 ボス撃破！ +100点 HP回復！";
+
+createBoard();
+}
+});
+
+function startGame(){
+
+score=0;
+hp=100;
+time=30;
+
+bossActive=false;
+bossAppeared=false;
+
+scoreEl.textContent=0;
+timeEl.textContent=30;
+
+bossOverlay.style.display="none";
+
+updateHP();
+
+show(gameScreen);
+
+createBoard();
+
+clearInterval(timer);
+
+timer=setInterval(()=>{
+
+time--;
+timeEl.textContent=time;
+
+if(time<=0){
+endGame();
+}
+
+},1000);
+}
+
+function endGame(){
+
+clearInterval(timer);
+
+bossOverlay.style.display="none";
+
+finalScore.textContent=score;
+
+let rank="C";
+
+if(score>=80) rank="B";
+if(score>=150) rank="A";
+if(score>=250) rank="S";
+if(score>=400) rank="SS";
+if(score>=600) rank="SSS";
+
+rankEl.textContent=rank;
+
+show(resultScreen);
+}
+
+document.getElementById("startBtn")
+.addEventListener("click",startGame);
+
+document.getElementById("retryBtn")
+.addEventListener("click",startGame);
+
+document.addEventListener("gesturestart",e=>{
+e.preventDefault();
+});
+
+document.addEventListener("dblclick",e=>{
+e.preventDefault();
+});
+
+</script>
+
+</body>
+</html>
